@@ -97,7 +97,9 @@ contract Auction {
 
     // seller closed the auction to start the transaction with the buyer
     function finalize() external onlySeller {
-        highestBidder.transfer(buyerDeposit);
+        if(highestBidder != address(0)) {
+            highestBidder.transfer(buyerDeposit);
+        }
         seller.transfer(address(this).balance);
         endTime = 0;
     }
