@@ -14,13 +14,18 @@ contract Auction {
     uint public highestBid;
 
     // TODO: deposit functionality
+    uint public sellerDeposit;
+    uint public buyerDeposit;
 
-    constructor(uint256 _startingPrice, string memory _title, string memory _description, uint _duration) {
+    constructor(uint256 _startingPrice, string memory _title, string memory _description, uint _duration, uint _buyerDeposit) payable {
+        sellerDeposit = msg.value;
         seller = payable(msg.sender);
+
         highestBid = _startingPrice;
         title = _title;
         description = _description;
         endTime = block.timestamp + _duration;
+        buyerDeposit = _buyerDeposit;
     }
 
     /// The function cannot be called at the current state.
@@ -71,27 +76,29 @@ contract Auction {
     }
 
     function bid() public onlyDuringOpen payable {
-        if(msg.value <= highestBid) {
+        if(msg.value <= highestBid + buyerDeposit) {
             revert InvalidBid();
         }
 
         if(highestBidder != address(0)) {
-            highestBidder.transfer(highestBid);
+            highestBidder.transfer(highestBid + buyerDeposit);
         }
 
         highestBidder = payable(msg.sender);
-        highestBid = msg.value;
-    }
-
-    // seller closed the auction to start the transaction with the buyer
-    function finalize() external onlySeller {
-        seller.transfer(address(this).balance);
-        endTime = 0;
+        highestBid = msg.value - buyerDeposit;
     }
 
     // to finish the auction and not accept the bid
     function abort() external onlySeller {
-        highestBidder.transfer(address(this).balance);
+        seller.transfer(sellerDeposit); // seller deposit
+        highestBidder.transfer(address(this).balance); // bid + buyer deposit
+        endTime = 0;
+    }
+
+    // seller closed the auction to start the transaction with the buyer
+    function finalize() external onlySeller {
+        highestBidder.transfer(buyerDeposit);
+        seller.transfer(address(this).balance);
         endTime = 0;
     }
 }
